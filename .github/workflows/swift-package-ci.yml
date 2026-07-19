@@ -13,6 +13,10 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      package-read-token:
+        description: 'Optional fine-grained PAT (Contents: Read-only) for cloning private spfk-* dependencies. Only needed by repos that depend on another private repo -- the default GITHUB_TOKEN is scoped only to the repo the workflow runs in.'
+        required: false
 
 jobs:
   build-and-test:
@@ -20,6 +24,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure git for private dependency access
+        if: ${{ secrets.package-read-token != '' }}
+        run: git config --global url."https://x-access-token:${{ secrets.package-read-token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
