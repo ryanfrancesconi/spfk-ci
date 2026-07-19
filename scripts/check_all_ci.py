@@ -27,7 +27,7 @@ from pathlib import Path
 
 PACKAGES_DIR = Path("/Users/rf/Documents/Dev/Spongefork/workspace/spfk-packages")
 ORG = "ryanfrancesconi"
-SKIP = {"_spfk-packages"}
+SKIP = {"_spfk-packages", "spfk-ci"}
 
 
 def run(cmd):
