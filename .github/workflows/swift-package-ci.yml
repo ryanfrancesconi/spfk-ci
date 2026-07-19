@@ -26,8 +26,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure git for private dependency access
-        if: ${{ secrets.package-read-token != '' }}
-        run: git config --global url."https://x-access-token:${{ secrets.package-read-token }}@github.com/".insteadOf "https://github.com/"
+        env:
+          PACKAGE_READ_TOKEN: ${{ secrets.package-read-token }}
+        run: |
+          if [ -n "$PACKAGE_READ_TOKEN" ]; then
+            git config --global url."https://x-access-token:${PACKAGE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+          fi
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
