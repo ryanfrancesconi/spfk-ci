@@ -21,6 +21,7 @@ on:
 jobs:
   build-and-test:
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +31,7 @@ jobs:
           PACKAGE_READ_TOKEN: ${{ secrets.package-read-token }}
         run: |
           if [ -n "$PACKAGE_READ_TOKEN" ]; then
-            git config --global url."https://x-access-token:${PACKAGE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+            git config --global url."https://x-access-token:${PACKAGE_READ_TOKEN}@github.com/ryanfrancesconi/".insteadOf "https://github.com/ryanfrancesconi/"
           fi
 
       - name: Select Xcode
