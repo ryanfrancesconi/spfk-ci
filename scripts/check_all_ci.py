@@ -117,13 +117,12 @@ def main():
         print(f"{name} | dispatching CI for {info['tag']} on {info['branch']}")
         run(["gh", "workflow", "run", "ci.yml", "--repo", f"{ORG}/{name}", "--ref", info["branch"]])
 
-    print("\n=== Waiting for results ===")
+    print("\n=== Resolving run IDs ===")
+    run_ids: dict[str, int] = {}
     for name in order:
         info = changed[name]
         if not info["branch"]:
             continue
-
-        run_id = None
         for _ in range(5):
             out = run([
                 "gh", "run", "list", "--repo", f"{ORG}/{name}", "--workflow=ci.yml",
@@ -135,19 +134,46 @@ def main():
                 data = []
             hits = [d["databaseId"] for d in data if d.get("event") == "workflow_dispatch"]
             if hits:
-                run_id = hits[0]
+                run_ids[name] = hits[0]
                 break
             time.sleep(3)
-
-        if run_id is None:
+        if name not in run_ids:
             print(f"{name} | could not find the dispatched run")
-            continue
 
-        watch = run(["gh", "run", "watch", str(run_id), "--repo", f"{ORG}/{name}", "--exit-status"])
-        if watch.returncode == 0:
-            print(f"{name} | PASS")
+    # Poll every pending run together rather than watching one at a time --
+    # one hung or slow-queued repo must not block visibility into the rest.
+    print(f"\n=== Waiting for results ({len(run_ids)} runs, polled concurrently) ===")
+    pending = dict(run_ids)
+    results: dict[str, tuple[str, int]] = {}
+    start = time.time()
+    max_wait_seconds = 25 * 60  # above the CI job's own 20-minute timeout-minutes cap
+
+    while pending and time.time() - start < max_wait_seconds:
+        for name, run_id in list(pending.items()):
+            out = run(["gh", "api", f"repos/{ORG}/{name}/actions/runs/{run_id}", "--jq", "{status,conclusion}"])
+            try:
+                data = json.loads(out.stdout)
+            except json.JSONDecodeError:
+                continue
+            if data.get("status") == "completed":
+                results[name] = (data.get("conclusion") or "unknown", run_id)
+                del pending[name]
+        if pending:
+            time.sleep(15)
+
+    print("\n=== RESULTS ===")
+    for name in order:
+        if name not in run_ids:
+            continue
+        run_id = run_ids[name]
+        if name in results:
+            conclusion, _ = results[name]
+            if conclusion == "success":
+                print(f"{name} | PASS")
+            else:
+                print(f"{name} | {conclusion.upper()} -- gh run view {run_id} --repo {ORG}/{name} --log-failed")
         else:
-            print(f"{name} | FAIL -- gh run view {run_id} --repo {ORG}/{name} --log-failed")
+            print(f"{name} | STILL RUNNING after {max_wait_seconds // 60}min -- gh run view {run_id} --repo {ORG}/{name}")
 
 
 if __name__ == "__main__":
