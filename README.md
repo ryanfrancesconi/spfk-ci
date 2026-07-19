@@ -1,19 +1,15 @@
 # spfk-ci
 
-Shared CI tooling for the spfk-packages garden.
+Shared CI for the spfk-packages garden.
 
-- `.github/workflows/swift-package-ci.yml` — reusable `workflow_call` job (`swift build` + `swift test` on a fresh checkout). Each package repo calls it from its own `ci.yml`/`release.yml`.
-- `scripts/check_all_ci.py` — dispatches that CI against every package with an unpushed local tag, in dependency order, before "push tags". See `CLAUDE-reference.md` in the ShadowTag repo for full usage.
+- `.github/workflows/swift-package-ci.yml` — reusable workflow that runs `swift build` + `swift test` on a fresh checkout. Every package's `ci.yml`/`release.yml` calls it.
+- `scripts/check_all_ci.py` — dispatches that CI for every package with an unpushed tag, before pushing tags.
 
-Public by design: most package repos in the garden are public, and a private repo's reusable workflows can only be shared with other private repos.
-
-**`swift build` is the pass/fail gate; `swift test` is informational (`continue-on-error: true`).** The goal of this repo is to catch a fresh public checkout silently breaking, not to be a full test runner — GitHub's hosted macOS runners lack a complete Core Audio component registry (no full user audio session), so audio-decode and Audio Unit hardware tests can fail there for reasons that have nothing to do with the code being broken. A green CI badge means the package builds and installs cleanly for an external user; test output is still visible in the run log for anyone who wants to look, it just doesn't block the badge or gate `release.yml`.
+**Build is the pass/fail gate, test is informational.** GitHub's macOS runners don't have a full Core Audio setup, so audio-decode and Audio Unit tests can fail there for reasons that have nothing to do with the code being broken. A green badge means the package builds and installs cleanly — test failures still show up in the run log, they just won't turn the badge red.
 
 ## Package Status
 
-SPI badges reflect Swift Package Index's own indexing, independent of this repo.
-
-### Public packages
+SPI badges come straight from Swift Package Index, not from this repo.
 
 | Package | CI | Version | Swift | Platforms |
 |---|---|---|---|---|
