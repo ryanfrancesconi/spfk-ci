@@ -15,7 +15,17 @@ tag in this round, its CI run can only resolve that dependency's OLD
 published tag -- the new code isn't visible to anyone outside this checkout
 yet. That case is flagged rather than silently reported as a full pass.
 
-Usage: python3 check_all_ci.py
+Private repos are SKIPPED by default. Public-repo Actions minutes are
+unlimited; private-repo minutes draw from a limited monthly quota (macOS
+runners at a 10x multiplier), and dispatching CI across every private repo
+in one run can exhaust that quota in a single sitting -- confirmed 2026-07-19
+when a full check_all_ci.py run burned through it and every subsequent
+private-repo job failed with "recent account payments have failed or your
+spending limit needs to be increased" for the rest of that billing cycle.
+Pass --include-private to opt in deliberately when you actually want private
+repos checked too.
+
+Usage: python3 check_all_ci.py [--include-private]
 """
 
 import json
@@ -28,10 +38,16 @@ from pathlib import Path
 PACKAGES_DIR = Path("/Users/rf/Documents/Dev/Spongefork/workspace/spfk-packages")
 ORG = "ryanfrancesconi"
 SKIP = {"_spfk-packages", "spfk-ci"}
+INCLUDE_PRIVATE = "--include-private" in sys.argv[1:]
 
 
 def run(cmd):
     return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def is_private(name: str) -> bool:
+    out = run(["gh", "repo", "view", f"{ORG}/{name}", "--json", "visibility", "-q", ".visibility"])
+    return out.stdout.strip() == "PRIVATE"
 
 
 def latest_tag(repo: Path) -> str | None:
@@ -84,16 +100,26 @@ def main():
     }
 
     changed = {}
+    skipped_private = []
     for name, repo in repos.items():
         tag = latest_tag(repo)
         if not tag or tag_pushed(repo, tag):
+            continue
+        if not INCLUDE_PRIVATE and is_private(name):
+            skipped_private.append(name)
             continue
         sha = run(["git", "-C", str(repo), "rev-list", "-n1", tag]).stdout.strip()
         branch = remote_branch_for(repo, sha)
         changed[name] = {"tag": tag, "sha": sha, "branch": branch}
 
+    if skipped_private:
+        print(f"=== Skipping {len(skipped_private)} private repo(s) (pass --include-private to check anyway) ===")
+        for name in sorted(skipped_private):
+            print(f"{name} | SKIPPED (private)")
+        print()
+
     if not changed:
-        print("No unpushed tags found -- nothing to check.")
+        print("No public unpushed tags found -- nothing to check.")
         return
 
     deps = {name: spfk_deps(repos[name]) & changed.keys() for name in changed}
