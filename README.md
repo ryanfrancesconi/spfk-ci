@@ -7,9 +7,11 @@ Shared CI tooling for the spfk-packages garden.
 
 Public by design: most package repos in the garden are public, and a private repo's reusable workflows can only be shared with other private repos.
 
+**`swift build` is the pass/fail gate; `swift test` is informational (`continue-on-error: true`).** The goal of this repo is to catch a fresh public checkout silently breaking, not to be a full test runner — GitHub's hosted macOS runners lack a complete Core Audio component registry (no full user audio session), so audio-decode and Audio Unit hardware tests can fail there for reasons that have nothing to do with the code being broken. A green CI badge means the package builds and installs cleanly for an external user; test output is still visible in the run log for anyone who wants to look, it just doesn't block the badge or gate `release.yml`.
+
 ## Package Status
 
-Only `spfk-network` has `ci.yml` installed so far (pilot) -- other CI badges will show as "not found" until each repo is rolled out. SPI badges reflect Swift Package Index's own indexing, independent of this repo.
+SPI badges reflect Swift Package Index's own indexing, independent of this repo.
 
 ### Public packages
 
